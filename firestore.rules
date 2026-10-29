@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// Access: any verified @garena.com Google account, plus any address that has a
+// document in the `allowlist` collection (document id = the email, lowercase).
+// Add or remove allowlist entries in the Firebase console > Firestore.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function allowed() {
+      return signedIn() && (
+        email().matches('.*@garena[.]com$') ||
+        exists(/databases/$(database)/documents/allowlist/$(email()))
+      );
+    }
+
+    match /items/{id} {
+      allow read, delete: if allowed();
+      allow create, update: if allowed()
+        && request.resource.data.name is string
+        && request.resource.data.qty is int
+        && request.resource.data.qty >= 1;
+    }
+
+    match /loans/{id} {
+      allow read, create, update: if allowed();
+      allow delete: if false;
+    }
+
+    // The activity log is append-only.
+    match /activity/{id} {
+      allow read, create: if allowed();
+      allow update, delete: if false;
+    }
+
+    // Managed from the console only.
+    match /allowlist/{entry} {
+      allow read, write: if false;
+    }
+  }
+}

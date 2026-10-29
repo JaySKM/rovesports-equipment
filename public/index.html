@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<title>Equipment Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one mobile column (H5), sticky header, bottom tab bar, bottom sheets for every form. Asset-tag vernacular: yellow tag chips, mono IDs. */
+:root {
+  --bg: #F2F4F6;
+  --surface: #FFFFFF;
+  --sunk: #E8ECF0;
+  --ink: #142029;
+  --muted: #5A6A78;
+  --line: #D9E0E6;
+  --accent: #2251CC;
+  --accent-ink: #FFFFFF;
+  --tag: #FFD43B;
+  --tag-ink: #1A1400;
+  --ok: #1D8653;
+  --ok-bg: #DDF3E7;
+  --warn: #9A6410;
+  --warn-bg: #FBEBCF;
+  --bad: #C2362B;
+  --bad-bg: #FBE1DE;
+  --scrim: rgba(12, 18, 24, .45);
+  --shadow: 0 10px 30px rgba(15, 30, 45, .14);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1217; --surface: #151C23; --sunk: #1C252E; --ink: #E5ECF2; --muted: #8C9BA8; --line: #27323C;
+    --accent: #7398FF; --accent-ink: #0B1220; --ok: #45C487; --ok-bg: #12301F; --warn: #E6AE52; --warn-bg: #33270F;
+    --bad: #FF7468; --bad-bg: #3A1714; --scrim: rgba(0, 0, 0, .6); --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1217; --surface: #151C23; --sunk: #1C252E; --ink: #E5ECF2; --muted: #8C9BA8; --line: #27323C;
+  --accent: #7398FF; --accent-ink: #0B1220; --ok: #45C487; --ok-bg: #12301F; --warn: #E6AE52; --warn-bg: #33270F;
+  --bad: #FF7468; --bad-bg: #3A1714; --scrim: rgba(0, 0, 0, .6); --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who span { font-size: 12px; color: var(--muted); max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 420px) { .who span { display: none; } }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 680px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { display: flex; align-items: center; gap: 12px; padding-block: 12px; }
+.brand { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.brand h1 { margin: 0; font-family: var(--f-display); font-stretch: 78%; font-weight: 800; font-size: 22px; letter-spacing: .01em; text-transform: uppercase; line-height: 1.05; }
+.brand small { color: var(--muted); font-size: 12px; }
+.ro-pill { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; background: var(--sunk); color: var(--muted); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); padding: 9px 14px; border-radius: 8px; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--bad); }
+.btn.danger.armed { background: var(--bad); color: #fff; border-color: var(--bad); }
+.btn.small { padding: 6px 10px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+main { padding-block: 16px 110px; display: flex; flex-direction: column; gap: 16px; }
+
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.summary div { padding: 12px 12px 10px; border-right: 1px solid var(--line); min-width: 0; }
+.summary div:last-child { border-right: 0; }
+.summary b { display: block; font-family: var(--f-display); font-stretch: 85%; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.summary span { display: block; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.summary .is-bad b { color: var(--bad); }
+@media (max-width: 420px) { .summary { grid-template-columns: repeat(2, 1fr); } .summary div:nth-child(2) { border-right: 0; } .summary div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+
+.toolbar { display: flex; flex-direction: column; gap: 10px; }
+.search { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--surface); padding: 6px 11px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip .n { font-family: var(--f-mono); font-size: 11px; opacity: .7; margin-left: 4px; }
+
+.section-label { font-family: var(--f-display); font-stretch: 80%; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 6px 0 -6px; display: flex; justify-content: space-between; gap: 8px; }
+
+.list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0; width: 100%; }
+.row:last-child { border-bottom: 0; }
+button.row:hover { background: var(--sunk); }
+.row .main { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.row .name { font-weight: 600; overflow-wrap: anywhere; }
+.row .meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.row .side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; justify-content: center; }
+
+.tag { font-family: var(--f-mono); font-size: 11px; font-weight: 600; background: var(--tag); color: var(--tag-ink); padding: 1px 6px; border-radius: 3px; letter-spacing: .03em; }
+.cat { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+.stock { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; }
+.stock .of { color: var(--muted); font-weight: 500; }
+.meter { width: 72px; height: 5px; border-radius: 3px; background: var(--sunk); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ok); }
+.meter.low i { background: var(--warn); }
+.meter.none i { background: var(--bad); }
+
+.pill { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 3px 7px; border-radius: 4px; white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.muted { background: var(--sunk); color: var(--muted); }
+
+.group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--sunk); border-bottom: 1px solid var(--line); }
+.group-head h3 { margin: 0; font-family: var(--f-display); font-stretch: 85%; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+.group-head span { font-size: 12px; color: var(--muted); font-family: var(--f-mono); white-space: nowrap; }
+
+.seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; align-self: flex-start; }
+.seg button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+.log-row { display: grid; grid-template-columns: 58px 1fr; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.log-row:last-child { border-bottom: 0; }
+.log-type { font-family: var(--f-mono); font-size: 10px; font-weight: 600; text-align: center; padding: 3px 0; border-radius: 3px; align-self: start; letter-spacing: .04em; }
+.t-added { background: var(--tag); color: var(--tag-ink); }
+.t-out { background: var(--warn-bg); color: var(--warn); }
+.t-in { background: var(--ok-bg); color: var(--ok); }
+.t-edit { background: var(--sunk); color: var(--muted); }
+.t-removed { background: var(--bad-bg); color: var(--bad); }
+.log-row p { margin: 0; overflow-wrap: anywhere; }
+.log-row small { color: var(--muted); font-size: 12px; }
+
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 18px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.empty h2 { margin: 0; font-family: var(--f-display); font-stretch: 85%; font-size: 20px; text-wrap: balance; }
+.empty p { margin: 0; color: var(--muted); max-width: 40ch; }
+.banner { background: var(--warn-bg); color: var(--warn); padding: 10px 14px; border-radius: 8px; font-size: 14px; }
+
+nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+nav.tabs .in { max-width: 680px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr auto 1fr; align-items: center; gap: 4px; padding-block: 6px; }
+nav.tabs .tab { border: 0; background: none; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; color: var(--muted); border-radius: 8px; }
+nav.tabs .tab[aria-current="page"] { color: var(--accent); }
+nav.tabs .tab b { font-family: var(--f-display); font-stretch: 75%; font-size: 15px; text-transform: uppercase; letter-spacing: .04em; }
+nav.tabs .tab .n { font-family: var(--f-mono); font-size: 11px; font-weight: 500; }
+.fab { width: 52px; height: 52px; border-radius: 14px; border: 0; background: var(--accent); color: var(--accent-ink); font-size: 26px; font-weight: 500; line-height: 1; box-shadow: var(--shadow); margin-top: -18px; }
+
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 680px; max-height: 92%; overflow-y: auto; border-radius: 16px 16px 0 0; box-shadow: var(--shadow); padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); animation: up .18s ease-out; }
+@keyframes up { from { transform: translateY(24px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+.grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 12px; }
+.sheet h2 { margin: 0 0 4px; font-family: var(--f-display); font-stretch: 82%; font-size: 22px; font-weight: 800; text-wrap: balance; }
+.sheet .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.x { border: 0; background: var(--sunk); width: 32px; height: 32px; border-radius: 8px; font-size: 18px; flex: none; }
+
+form.f { display: flex; flex-direction: column; gap: 12px; }
+.f label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); min-width: 0; }
+.f input, .f select, .f textarea { text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 400; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
+.f textarea { min-height: 64px; resize: vertical; }
+.f .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.f .hint { font-size: 12px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.f .err { color: var(--bad); font-size: 13px; min-height: 1em; margin: 0; }
+.f .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+.kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.kv div { background: var(--sunk); border-radius: 8px; padding: 10px; }
+.kv b { display: block; font-family: var(--f-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.kv span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.note { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; margin: 0 0 14px; }
+.sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 30; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Equipment Tracker</h1>
+      <small id="sync">Connecting to shared records…</small>
+    </div>
+    <span class="ro-pill" id="roPill" hidden>View only</span>
+    <div class="who" id="who" hidden><span id="whoName"></span><button class="btn small" id="signOut">Sign out</button></div>
+  </div>
+</header>
+
+<main class="wrap" id="view"></main>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="in">
+    <button class="tab" data-tab="stock" aria-current="page"><b>Stock</b><span class="n" id="nStock">0 items</span></button>
+    <button class="tab" data-tab="loans"><b>On loan</b><span class="n" id="nLoans">0 out</span></button>
+    <button class="fab" id="fab" aria-label="Add or lend equipment">+</button>
+    <button class="tab" data-tab="log"><b>Log</b><span class="n" id="nLog">activity</span></button>
+  </div>
+</nav>
+
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+const CATS = ["Phone", "Tablet", "Laptop", "Charger", "Cable", "Hub & Dock", "Other"];
+const CAT_HINT = {
+  "Phone": "Smartphones, test devices",
+  "Tablet": "iPad, Android tablets",
+  "Laptop": "MacBook, Dell, Windows laptops",
+  "Charger": "Power adapters and charging bricks, phone or laptop",
+  "Cable": "USB-C, Lightning, HDMI and other cables",
+  "Hub & Dock": "Dongles, USB-C hubs, docking stations, video and port adapters",
+  "Other": "Anything that fits none of the above",
+};
+// Categories used before the standard list; mapped on read.
+const LEGACY_CAT = { "Adapter": "Charger", "Dongle": "Hub & Dock" };
+
+const S = {
+  db: null, uid: null, me: "", canWrite: true, ready: false, gate: "loading", email: "",
+  items: [], loans: [], acts: [],
+  view: "stock", cat: "All", q: "", loanMode: "out", project: "All",
+};
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const tagOf = id => "EQ-" + String(id).slice(-4).toUpperCase();
+const DAY = 864e5;
+function fmtDate(ms) { if (!ms) return "—"; return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" }); }
+function daysOut(ms) { const d = Math.floor((Date.now() - ms) / DAY); return d <= 0 ? "since today" : d === 1 ? "1 day out" : d + " days out"; }
+function todayStart() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function isOverdue(l) { return l.status === "out" && l.dueAt && l.dueAt < todayStart(); }
+function dueSoon(l) { return l.status === "out" && l.dueAt && !isOverdue(l) && l.dueAt - todayStart() <= DAY; }
+function nameOf(r) { return (r && r.byName) || "Someone"; }
+
+function outQty(itemId) { return S.loans.reduce((n, l) => n + (l.status === "out" && l.itemId === itemId ? (l.qty || 0) : 0), 0); }
+function avail(item) { return Math.max(0, (item.qty || 0) - outQty(item.id)); }
+function distinct(field) { return [...new Set(S.loans.map(l => (l[field] || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
+
+let toastT;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+/* ---------- views ---------- */
+function render() {
+  const out = S.loans.filter(l => l.status === "out");
+  $("#nStock").textContent = S.items.length + (S.items.length === 1 ? " item" : " items");
+  $("#nLoans").textContent = out.length + " out";
+  $("#nLog").textContent = S.acts.length ? S.acts.length + " entries" : "activity";
+  document.querySelectorAll("nav .tab").forEach(b => b.dataset.tab === S.view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  $("#roPill").hidden = S.canWrite;
+  $("#fab").hidden = !S.canWrite;
+  const v = $("#view");
+  $("#who").hidden = !S.uid;
+  $("#whoName").textContent = S.email;
+  document.querySelector("nav.tabs").hidden = !!S.gate;
+  if (S.gate) { $("#fab").hidden = true; v.innerHTML = gateView(); return; }
+  if (S.view === "stock") v.innerHTML = stockView();
+  else if (S.view === "loans") v.innerHTML = loansView();
+  else v.innerHTML = logView();
+}
+
+function gateView() {
+  if (S.gate === "loading") return `<div class="empty"><p>Loading…</p></div>`;
+  if (S.gate === "signin") return `<div class="empty">
+    <h2>Sign in to the equipment cage</h2>
+    <p>Use your Google account to see stock, lend equipment to a project and log returns. Everyone with access sees the same records, live.</p>
+    <button class="btn primary" data-act="signin">Sign in with Google</button>
+    <p class="err" id="signErr"></p></div>`;
+  if (S.gate === "denied") return `<div class="empty">
+    <h2>This account doesn't have access</h2>
+    <p>${esc(S.email)} isn't on the access list. Sign in with your @garena.com account, or ask the tracker admin to add this address.</p>
+    <button class="btn" data-act="signout">Use another account</button></div>`;
+  return `<div class="empty"><h2>Couldn't load the records</h2><p>Check your connection and reload the page.</p></div>`;
+}
+
+function stockView() {
+  const units = S.items.reduce((n, i) => n + (i.qty || 0), 0);
+  const out = S.loans.filter(l => l.status === "out");
+  const outUnits = out.reduce((n, l) => n + (l.qty || 0), 0);
+  const overdue = out.filter(isOverdue).length;
+  let h = `<div class="summary">
+    <div><b>${units}</b><span>Total units</span></div>
+    <div><b>${units - outUnits}</b><span>In the cage</span></div>
+    <div><b>${outUnits}</b><span>On loan</span></div>
+    <div class="${overdue ? "is-bad" : ""}"><b>${overdue}</b><span>Overdue loans</span></div>
+  </div>`;
+  if (!S.ready) return h + `<div class="empty"><p>Loading stock…</p></div>`;
+  if (!S.items.length) {
+    return h + `<div class="empty">
+      <h2>No equipment logged yet</h2>
+      <p>Add your first item: a phone model, a laptop, a charger, a cable type or a docking station, with how many units you have.</p>
+      ${S.canWrite ? `<button class="btn primary" data-act="add">Add first item</button>` : ""}
+    </div>`;
+  }
+  const counts = { All: S.items.length };
+  S.items.forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
+  h += `<div class="toolbar">
+    <input class="search" id="q" type="search" placeholder="Search model, serial, note" value="${esc(S.q)}" autocomplete="off">
+    <div class="chips" role="group" aria-label="Category">
+      ${["All", ...CATS].filter(c => counts[c]).map(c => `<button class="chip" data-cat="${c}" aria-pressed="${S.cat === c}">${c}<span class="n">${counts[c]}</span></button>`).join("")}
+    </div></div>`;
+  const q = S.q.trim().toLowerCase();
+  const rows = S.items
+    .filter(i => S.cat === "All" || i.category === S.cat)
+    .filter(i => !q || [i.name, i.serials, i.note, i.location, tagOf(i.id)].join(" ").toLowerCase().includes(q))
+    .sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
+  if (!rows.length) return h + `<div class="empty"><p>Nothing matches “${esc(S.q)}”.</p></div>`;
+  h += `<div class="list">` + rows.map(i => {
+    const a = avail(i), t = i.qty || 0, pct = t ? a / t * 100 : 0;
+    const cls = a === 0 ? "none" : a / t <= .34 ? "low" : "";
+    const o = t - a;
+    return `<button class="row" data-item="${i.id}">
+      <div class="main">
+        <span class="name">${esc(i.name)}</span>
+        <span class="meta"><span class="tag">${tagOf(i.id)}</span><span class="cat">${esc(i.category)}</span>${i.location ? `<span>${esc(i.location)}</span>` : ""}${o ? `<span>${o} on loan</span>` : ""}</span>
+      </div>
+      <div class="side">
+        <span class="stock">${a}<span class="of"> / ${t}</span></span>
+        <span class="meter ${cls}"><i style="width:${pct}%"></i></span>
+      </div></button>`;
+  }).join("") + `</div>`;
+  return h;
+}
+
+function loanCard(l) {
+  let status;
+  if (l.status === "returned") status = `<span class="pill muted">Returned ${fmtDate(l.returnedAt)}</span>`;
+  else if (isOverdue(l)) status = `<span class="pill bad">Overdue · due ${fmtDate(l.dueAt)}</span>`;
+  else if (dueSoon(l)) status = `<span class="pill warn">Due ${fmtDate(l.dueAt)}</span>`;
+  else status = `<span class="pill ok">${l.dueAt ? "Due " + fmtDate(l.dueAt) : "Out"}</span>`;
+  return `<div class="row">
+    <div class="main">
+      <span class="name">${esc(l.itemName)}${(l.qty || 1) > 1 ? ` <span class="stock">×${l.qty}</span>` : ""}</span>
+      <span class="meta"><span>PIC <strong>${esc(l.pic)}</strong></span><span>Out ${fmtDate(l.outAt)}${l.status === "out" ? " · " + daysOut(l.outAt) : ""}</span></span>
+      ${l.note ? `<span class="meta">${esc(l.note)}</span>` : ""}
+    </div>
+    <div class="side">${status}${l.status === "out" && S.canWrite ? `<button class="btn small" data-return="${l.id}">Return</button>` : ""}</div>
+  </div>`;
+}
+
+function loansView() {
+  const base = S.loans.filter(l => S.loanMode === "all" || l.status === S.loanMode);
+  const projects = [...new Set(base.map(l => l.project))].sort((a, b) => a.localeCompare(b));
+  if (S.project !== "All" && !projects.includes(S.project)) S.project = "All";
+  let h = `<div class="toolbar">
+    <div class="seg" role="group" aria-label="Loan status">
+      ${[["out", "On loan"], ["returned", "Returned"], ["all", "All"]].map(([k, t]) => `<button data-mode="${k}" aria-pressed="${S.loanMode === k}">${t}</button>`).join("")}
+    </div>
+    ${projects.length > 1 ? `<div class="chips" role="group" aria-label="Project">${["All", ...projects].map(p => `<button class="chip" data-project="${esc(p)}" aria-pressed="${S.project === p}">${esc(p)}</button>`).join("")}</div>` : ""}
+  </div>`;
+  if (!S.ready) return h + `<div class="empty"><p>Loading loans…</p></div>`;
+  const rows = base.filter(l => S.project === "All" || l.project === S.project);
+  if (!rows.length) {
+    const msg = S.loanMode === "out" ? ["Everything is in the cage", "When a project borrows equipment, log it with the + button. It shows here grouped by project, with the PIC and due date."] : ["No returns yet", "Returned loans are kept here as history."];
+    return h + `<div class="empty"><h2>${msg[0]}</h2><p>${msg[1]}</p>${S.loanMode === "out" && S.canWrite && S.items.length ? `<button class="btn primary" data-act="lend">Lend equipment</button>` : ""}</div>`;
+  }
+  const groups = {};
+  rows.forEach(l => (groups[l.project] ||= []).push(l));
+  Object.keys(groups).sort((a, b) => a.localeCompare(b)).forEach(p => {
+    const ls = groups[p].sort((a, b) => (a.status === "out" ? 0 : 1) - (b.status === "out" ? 0 : 1) || (b.outAt - a.outAt));
+    const units = ls.filter(l => l.status === "out").reduce((n, l) => n + (l.qty || 0), 0);
+    const pics = [...new Set(ls.map(l => l.pic))];
+    h += `<div class="list">
+      <div class="group-head"><h3>${esc(p)}</h3><span>${units ? units + " unit" + (units > 1 ? "s" : "") + " out · " : ""}${pics.length} PIC${pics.length > 1 ? "s" : ""}</span></div>
+      ${ls.map(loanCard).join("")}</div>`;
+  });
+  return h;
+}
+
+const ACT = { added: "ADDED", out: "LENT", in: "RETURN", edit: "EDIT", removed: "REMOVED" };
+function logView() {
+  if (!S.ready) return `<div class="empty"><p>Loading activity…</p></div>`;
+  if (!S.acts.length) return `<div class="empty"><h2>No activity yet</h2><p>Every item added, lent, returned or edited is logged here with who did it and when.</p></div>`;
+  let h = "", day = "";
+  const parts = [];
+  S.acts.forEach(a => {
+    const d = new Date(a.at).toDateString();
+    if (d !== day) { if (parts.length) parts.push(`</div>`); day = d; parts.push(`<div class="section-label"><span>${new Date(a.at).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span></div><div class="list">`); }
+    parts.push(`<div class="log-row"><span class="log-type t-${a.type}">${ACT[a.type] || "NOTE"}</span><div><p>${esc(a.text)}</p><small>${new Date(a.at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })} · logged by ${esc(nameOf(a))}</small></div></div>`);
+  });
+  if (parts.length) parts.push(`</div>`);
+  return parts.join("");
+}
+
+/* ---------- sheets ---------- */
+let sheetClose = null;
+function openSheet(html, mount) {
+  const root = $("#sheetRoot");
+  root.innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grip"></div>${html}</div></div>`;
+  const scrim = $("#scrim");
+  scrim.addEventListener("click", e => { if (e.target === scrim || e.target.closest("[data-close]")) closeSheet(); });
+  sheetClose = e => { if (e.key === "Escape") closeSheet(); };
+  document.addEventListener("keydown", sheetClose);
+  mount && mount($(".sheet", root));
+  const first = $(".sheet input, .sheet select", root); first && first.focus({ preventScroll: true });
+}
+function closeSheet() { $("#sheetRoot").innerHTML = ""; if (sheetClose) document.removeEventListener("keydown", sheetClose); sheetClose = null; }
+const head = (t, sub) => `<div class="sheet-head"><div><h2>${t}</h2>${sub ? `<p class="sub">${sub}</p>` : ""}</div><button class="x" data-close aria-label="Close">×</button></div>`;
+
+function itemForm(item) {
+  const it = item || { name: "", category: "Phone", qty: 1, serials: "", location: "", note: "" };
+  openSheet(`${head(item ? "Edit item" : "Add item", item ? tagOf(item.id) : "Log new equipment into stock")}
+    <form class="f" id="itemForm">
+      <label>Model / name<input id="fName" required maxlength="80" value="${esc(it.name)}" placeholder="e.g. iPhone 17 Pro Max 256GB"></label>
+      <div class="two">
+        <label>Category<select id="fCat">${CATS.map(c => `<option${c === it.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select><span class="hint" id="fCatHint">${esc(CAT_HINT[it.category] || "")}</span></label>
+        <label>${item ? "Total units" : "Quantity"}<input id="fQty" type="number" min="${item ? Math.max(1, outQty(item.id)) : 1}" max="999" step="1" required value="${it.qty}" inputmode="numeric"></label>
+      </div>
+      <label>Storage location<input id="fLoc" maxlength="60" value="${esc(it.location)}" placeholder="e.g. Cabinet A, drawer 2"></label>
+      <label>Serial / IMEI / asset no.<textarea id="fSerial" maxlength="1000" placeholder="One per line (optional)">${esc(it.serials)}</textarea></label>
+      <label>Note<input id="fNote" maxlength="200" value="${esc(it.note)}" placeholder="Color, storage, condition…"></label>
+      <p class="err" id="fErr"></p>
+      <div class="actions"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary" id="fSave">${item ? "Save changes" : "Add to stock"}</button></div>
+    </form>`, sh => {
+    $("#fCat").addEventListener("change", () => $("#fCatHint").textContent = CAT_HINT[$("#fCat").value] || "");
+    $("#itemForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const data = { name: $("#fName").value.trim(), category: $("#fCat").value, qty: parseInt($("#fQty").value, 10), location: $("#fLoc").value.trim(), serials: $("#fSerial").value.trim(), note: $("#fNote").value.trim() };
+      if (!data.name) return $("#fErr").textContent = "Enter a model or name.";
+      if (!(data.qty >= 1)) return $("#fErr").textContent = "Quantity must be at least 1.";
+      if (item && data.qty < outQty(item.id)) return $("#fErr").textContent = `${outQty(item.id)} units are on loan, so the total can't go below that.`;
+      $("#fSave").disabled = true;
+      try {
+        if (item) {
+          await S.db.doc("items/" + item.id).update({ ...data, updatedAt: Date.now() });
+          const diff = data.qty - (item.qty || 0);
+          await logAct("edit", `${data.name}: ${diff ? `stock ${diff > 0 ? "+" : ""}${diff} → ${data.qty} units` : "details updated"}`);
+          toast("Saved");
+        } else {
+          await S.db.collection("items").add({ ...data, createdAt: Date.now(), by: S.uid, byName: S.me });
+          await logAct("added", `Added ${data.qty} × ${data.name} (${data.category})`);
+          toast(`Added ${data.qty} × ${data.name}`);
+        }
+        closeSheet();
+      } catch (err) { $("#fSave").disabled = false; $("#fErr").textContent = writeError(err); }
+    });
+  });
+}
+
+function lendForm(preItemId) {
+  const pool = S.items.filter(i => avail(i) > 0).sort((a, b) => a.name.localeCompare(b.name));
+  if (!pool.length) return toast("Nothing is available to lend right now");
+  const pre = pool.find(i => i.id === preItemId) || pool[0];
+  const due = new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10);
+  openSheet(`${head("Lend equipment", "Record which project takes it and who is responsible")}
+    <form class="f" id="lendForm">
+      <label>Item<select id="lItem">${pool.map(i => `<option value="${i.id}"${i.id === pre.id ? " selected" : ""}>${esc(i.name)} · ${avail(i)} available</option>`).join("")}</select></label>
+      <div class="two">
+        <label>Quantity<input id="lQty" type="number" min="1" step="1" required value="1" inputmode="numeric"></label>
+        <label>Return by<input id="lDue" type="date" value="${due}"></label>
+      </div>
+      <label>Project<input id="lProj" required maxlength="60" list="projList" placeholder="e.g. RPL Winter 2026 broadcast"></label>
+      <label>PIC (person in charge)<input id="lPic" required maxlength="60" list="picList" placeholder="Name of the person responsible"></label>
+      <label>Note<input id="lNote" maxlength="200" placeholder="Serial taken, purpose, condition…"></label>
+      <datalist id="projList">${distinct("project").map(p => `<option value="${esc(p)}">`).join("")}</datalist>
+      <datalist id="picList">${distinct("pic").map(p => `<option value="${esc(p)}">`).join("")}</datalist>
+      <p class="err" id="lErr"></p>
+      <div class="actions"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary" id="lSave">Lend</button></div>
+    </form>`, () => {
+    const sync = () => { const i = S.items.find(x => x.id === $("#lItem").value); $("#lQty").max = i ? avail(i) : 1; };
+    $("#lItem").addEventListener("change", sync); sync();
+    $("#lendForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const item = S.items.find(x => x.id === $("#lItem").value);
+      const qty = parseInt($("#lQty").value, 10), project = $("#lProj").value.trim(), pic = $("#lPic").value.trim();
+      const dueV = $("#lDue").value;
+      if (!item) return $("#lErr").textContent = "That item was removed. Pick another.";
+      if (!(qty >= 1)) return $("#lErr").textContent = "Quantity must be at least 1.";
+      if (qty > avail(item)) return $("#lErr").textContent = `Only ${avail(item)} of ${item.name} available.`;
+      if (!project || !pic) return $("#lErr").textContent = "Project and PIC are both required.";
+      $("#lSave").disabled = true;
+      try {
+        await S.db.collection("loans").add({ itemId: item.id, itemName: item.name, category: item.category, qty, project, pic, note: $("#lNote").value.trim(), outAt: Date.now(), dueAt: dueV ? new Date(dueV + "T23:59:00").getTime() : null, status: "out", by: S.uid, byName: S.me });
+        await logAct("out", `${qty} × ${item.name} lent to ${project} · PIC ${pic}`);
+        closeSheet(); toast(`Lent to ${project}`);
+      } catch (err) { $("#lSave").disabled = false; $("#lErr").textContent = writeError(err); }
+    });
+  });
+}
+
+function itemSheet(id) {
+  const i = S.items.find(x => x.id === id); if (!i) return;
+  const loans = S.loans.filter(l => l.itemId === id && l.status === "out");
+  const out = outQty(id);
+  openSheet(`${head(esc(i.name), `<span class="tag">${tagOf(i.id)}</span> &nbsp;${esc(i.category)}${i.location ? " · " + esc(i.location) : ""}`)}
+    <div class="kv"><div><b>${avail(i)}</b><span>Available</span></div><div><b>${out}</b><span>On loan</span></div><div><b>${i.qty}</b><span>Total</span></div></div>
+    ${i.serials ? `<div class="section-label" style="margin:0 0 6px"><span>Serial / IMEI</span></div><p class="note">${esc(i.serials)}</p>` : ""}
+    ${i.note ? `<p class="note">${esc(i.note)}</p>` : ""}
+    <div class="section-label" style="margin:0 0 6px"><span>Who has it</span></div>
+    ${loans.length ? `<div class="list">${loans.map(l => loanCard({ ...l, itemName: l.project })).join("")}</div>` : `<p class="sub">All units are in the cage.</p>`}
+    <p class="sub" style="margin-top:12px">Added ${fmtDate(i.createdAt)} by ${esc(nameOf(i))}</p>
+    ${S.canWrite ? `<div class="sheet-actions">
+      <button class="btn primary" id="iLend" ${avail(i) ? "" : "disabled"}>Lend</button>
+      <button class="btn" id="iEdit">Edit / restock</button>
+      <button class="btn danger" id="iDel" ${out ? "disabled title=\"Return all loans first\"" : ""}>Remove</button>
+    </div>${out ? `<p class="sub" style="margin-top:8px">Return all loans before removing this item.</p>` : ""}` : ""}`, sh => {
+    bindReturns(sh);
+    if (!S.canWrite) return;
+    $("#iLend").addEventListener("click", () => lendForm(id));
+    $("#iEdit").addEventListener("click", () => itemForm(i));
+    armed($("#iDel"), "Tap again to remove", async () => {
+      try { await S.db.doc("items/" + id).delete(); await logAct("removed", `Removed ${i.name} (${i.qty} units) from stock`); closeSheet(); toast("Removed"); }
+      catch (err) { toast(writeError(err)); }
+    });
+  });
+}
+
+function armed(btn, label, fn) {
+  let t, orig = btn.textContent;
+  btn.addEventListener("click", () => {
+    if (btn.classList.contains("armed")) { clearTimeout(t); btn.disabled = true; fn(); return; }
+    btn.classList.add("armed"); btn.textContent = label;
+    t = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = orig; }, 3000);
+  });
+}
+function bindReturns(scope) {
+  scope.querySelectorAll("[data-return]").forEach(b => armed(b, "Confirm", async () => {
+    const l = S.loans.find(x => x.id === b.dataset.return); if (!l) return;
+    try {
+      await S.db.doc("loans/" + l.id).update({ status: "returned", returnedAt: Date.now(), returnedBy: S.uid });
+      await logAct("in", `${l.qty} × ${l.itemName} returned from ${l.project} · PIC ${l.pic}`);
+      toast("Marked returned");
+      if ($("#sheetRoot").innerHTML) itemSheet(l.itemId);
+    } catch (err) { b.disabled = false; toast(writeError(err)); }
+  }));
+}
+
+function fabMenu() {
+  openSheet(`${head("What do you want to log?")}
+    <div class="sheet-actions" style="flex-direction:column">
+      <button class="btn primary" id="mAdd" style="justify-content:flex-start;padding:14px">Add item to stock</button>
+      <button class="btn" id="mLend" style="justify-content:flex-start;padding:14px" ${S.items.some(i => avail(i) > 0) ? "" : "disabled"}>Lend equipment to a project</button>
+    </div>`, () => {
+    $("#mAdd").addEventListener("click", () => itemForm());
+    $("#mLend").addEventListener("click", () => lendForm());
+  });
+}
+
+/* ---------- data ---------- */
+async function logAct(type, text) {
+  try { await S.db.collection("activity").add({ type, text, at: Date.now(), by: S.uid, byName: S.me }); } catch (e) { /* the main write succeeded; the log entry is best-effort */ }
+}
+function writeError(err) {
+  if (err && err.code === "permission-denied") return "Your account doesn't have permission to change records.";
+  return "Couldn't save. Check your connection and try again.";
+}
+let unsubs = [];
+async function boot() {
+  let cfg;
+  try { cfg = await (await fetch("/__/firebase/init.json")).json(); }
+  catch (e) { S.gate = "error"; $("#sync").textContent = "Not connected"; render(); return; }
+  const app = initializeApp(cfg);
+  const auth = getAuth(app), fs = getFirestore(app);
+  // Small wrapper so the view code reads the same as before the Firebase port.
+  S.db = {
+    collection: p => ({ add: d => addDoc(collection(fs, p), d) }),
+    doc: path => { const r = doc(fs, ...path.split("/")); return { update: d => updateDoc(r, d), delete: () => deleteDoc(r) }; },
+  };
+  S.signIn = async () => {
+    const p = new GoogleAuthProvider();
+    p.setCustomParameters({ prompt: "select_account" });
+    try { await signInWithPopup(auth, p); }
+    catch (e) {
+      if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") return signInWithRedirect(auth, p);
+      if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") { const el = $("#signErr"); if (el) el.textContent = "Sign-in failed. Try again."; }
+    }
+  };
+  S.signOut = () => signOut(auth);
+  onAuthStateChanged(auth, u => {
+    unsubs.forEach(f => f()); unsubs = [];
+    S.items = []; S.loans = []; S.acts = []; S.ready = false;
+    if (!u) { S.uid = null; S.email = ""; S.gate = "signin"; $("#sync").textContent = "Signed out"; render(); return; }
+    S.uid = u.uid; S.email = u.email || ""; S.me = u.displayName || u.email || "";
+    S.gate = "loading"; render();
+    let got = 0;
+    const done = () => { if (++got >= 3) { S.ready = true; S.gate = null; $("#sync").textContent = "Shared with your team · updates live"; } };
+    const fail = e => {
+      S.gate = e && e.code === "permission-denied" ? "denied" : "error";
+      $("#sync").textContent = S.gate === "denied" ? "No access" : "Lost connection. Reload to retry.";
+      render();
+    };
+    unsubs.push(onSnapshot(collection(fs, "items"), q => { S.items = q.docs.map(d => { const v = d.data(); return { id: d.id, ...v, category: LEGACY_CAT[v.category] || (CATS.includes(v.category) ? v.category : "Other") }; }); done(); render(); }, fail));
+    unsubs.push(onSnapshot(collection(fs, "loans"), q => { S.loans = q.docs.map(d => ({ id: d.id, ...d.data() })); done(); render(); }, fail));
+    unsubs.push(onSnapshot(query(collection(fs, "activity"), orderBy("at", "desc"), limit(300)), q => { S.acts = q.docs.map(d => ({ id: d.id, ...d.data() })); done(); render(); }, fail));
+  });
+}
+
+/* ---------- events ---------- */
+function go(view) { S.view = view; try { history.replaceState(null, "", "#" + view); } catch (e) {} render(); window.scrollTo(0, 0); }
+document.querySelectorAll("nav .tab").forEach(b => b.addEventListener("click", () => go(b.dataset.tab)));
+$("#fab").addEventListener("click", fabMenu);
+$("#signOut").addEventListener("click", () => S.signOut && S.signOut());
+$("#view").addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.cat) { S.cat = t.dataset.cat; render(); }
+  else if (t.dataset.item) itemSheet(t.dataset.item);
+  else if (t.dataset.mode) { S.loanMode = t.dataset.mode; render(); }
+  else if (t.dataset.project) { S.project = t.dataset.project; render(); }
+  else if (t.dataset.act === "add") itemForm();
+  else if (t.dataset.act === "lend") lendForm();
+  else if (t.dataset.act === "signin") S.signIn && S.signIn();
+  else if (t.dataset.act === "signout") S.signOut && S.signOut();
+});
+// Return buttons are re-bound after each render of the loans view.
+new MutationObserver(() => bindReturns($("#view"))).observe($("#view"), { childList: true });
+$("#view").addEventListener("input", e => {
+  if (e.target.id === "q") { S.q = e.target.value; const pos = e.target.selectionStart; render(); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); }
+});
+
+const h = (location.hash || "").slice(1);
+if (["stock", "loans", "log"].includes(h)) S.view = h;
+render();
+boot();
+</script>
+</body>
+</html>
