@@ -32,6 +32,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Broken-unit reports: closed (repaired / written off) rather than deleted.
+    match /issues/{id} {
+      allow read: if allowed();
+      allow create: if allowed()
+        && request.resource.data.description is string
+        && request.resource.data.description.size() > 0
+        && request.resource.data.qty is int
+        && request.resource.data.qty >= 1;
+      allow update: if allowed();
+      allow delete: if false;
+    }
+
     // The activity log is append-only.
     match /activity/{id} {
       allow read, create: if allowed();

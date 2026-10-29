@@ -79,13 +79,12 @@ header.top .wrap { display: flex; align-items: center; gap: 12px; padding-block:
 
 main { padding-block: 16px 110px; display: flex; flex-direction: column; gap: 16px; }
 
-.summary { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.summary div { padding: 12px 12px 10px; border-right: 1px solid var(--line); min-width: 0; }
-.summary div:last-child { border-right: 0; }
+.summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.summary div { padding: 12px 12px 10px; background: var(--surface); min-width: 0; }
 .summary b { display: block; font-family: var(--f-display); font-stretch: 85%; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
 .summary span { display: block; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
 .summary .is-bad b { color: var(--bad); }
-@media (max-width: 420px) { .summary { grid-template-columns: repeat(2, 1fr); } .summary div:nth-child(2) { border-right: 0; } .summary div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+@media (max-width: 520px) { .summary { grid-template-columns: repeat(2, 1fr); } .summary div:first-child { grid-column: 1 / -1; } }
 
 .toolbar { display: flex; flex-direction: column; gap: 10px; }
 .search { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
@@ -130,14 +129,15 @@ button.row:hover { background: var(--sunk); }
 .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 
-.log-row { display: grid; grid-template-columns: 58px 1fr; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.log-row { display: grid; grid-template-columns: 68px 1fr; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
 .log-row:last-child { border-bottom: 0; }
 .log-type { font-family: var(--f-mono); font-size: 10px; font-weight: 600; text-align: center; padding: 3px 0; border-radius: 3px; align-self: start; letter-spacing: .04em; }
 .t-added { background: var(--tag); color: var(--tag-ink); }
 .t-out { background: var(--warn-bg); color: var(--warn); }
 .t-in { background: var(--ok-bg); color: var(--ok); }
 .t-edit { background: var(--sunk); color: var(--muted); }
-.t-removed { background: var(--bad-bg); color: var(--bad); }
+.t-removed, .t-broken, .t-writeoff { background: var(--bad-bg); color: var(--bad); }
+.t-fixed { background: var(--ok-bg); color: var(--ok); }
 .log-row p { margin: 0; overflow-wrap: anywhere; }
 .log-row small { color: var(--muted); font-size: 12px; }
 
@@ -173,7 +173,14 @@ form.f { display: flex; flex-direction: column; gap: 12px; }
 .f .err { color: var(--bad); font-size: 13px; min-height: 1em; margin: 0; }
 .f .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
 
-.kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.kv .is-bad b { color: var(--bad); }
+@media (max-width: 380px) { .kv { grid-template-columns: repeat(2, 1fr); } }
+.issue { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.issue:last-child { border-bottom: 0; }
+.issue p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.issue .meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.issue .acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .kv div { background: var(--sunk); border-radius: 8px; padding: 10px; }
 .kv b { display: block; font-family: var(--f-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
 .kv span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
@@ -230,7 +237,7 @@ const LEGACY_CAT = { "Adapter": "Charger", "Dongle": "Hub & Dock" };
 
 const S = {
   db: null, uid: null, me: "", canWrite: true, ready: false, gate: "loading", email: "",
-  items: [], loans: [], acts: [],
+  items: [], loans: [], acts: [], issues: [],
   view: "stock", cat: "All", q: "", loanMode: "out", project: "All",
 };
 
@@ -246,7 +253,8 @@ function dueSoon(l) { return l.status === "out" && l.dueAt && !isOverdue(l) && l
 function nameOf(r) { return (r && r.byName) || "Someone"; }
 
 function outQty(itemId) { return S.loans.reduce((n, l) => n + (l.status === "out" && l.itemId === itemId ? (l.qty || 0) : 0), 0); }
-function avail(item) { return Math.max(0, (item.qty || 0) - outQty(item.id)); }
+function brokenQty(itemId) { return S.issues.reduce((n, x) => n + (x.status === "open" && x.itemId === itemId ? (x.qty || 0) : 0), 0); }
+function avail(item) { return Math.max(0, (item.qty || 0) - outQty(item.id) - brokenQty(item.id)); }
 function distinct(field) { return [...new Set(S.loans.map(l => (l[field] || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
 
 let toastT;
@@ -290,10 +298,12 @@ function stockView() {
   const out = S.loans.filter(l => l.status === "out");
   const outUnits = out.reduce((n, l) => n + (l.qty || 0), 0);
   const overdue = out.filter(isOverdue).length;
+  const broken = S.issues.reduce((n, x) => n + (x.status === "open" ? (x.qty || 0) : 0), 0);
   let h = `<div class="summary">
     <div><b>${units}</b><span>Total units</span></div>
-    <div><b>${units - outUnits}</b><span>In the cage</span></div>
+    <div><b>${Math.max(0, units - outUnits - broken)}</b><span>Available</span></div>
     <div><b>${outUnits}</b><span>On loan</span></div>
+    <div class="${broken ? "is-bad" : ""}"><b>${broken}</b><span>Broken</span></div>
     <div class="${overdue ? "is-bad" : ""}"><b>${overdue}</b><span>Overdue loans</span></div>
   </div>`;
   if (!S.ready) return h + `<div class="empty"><p>Loading stock…</p></div>`;
@@ -306,25 +316,27 @@ function stockView() {
   }
   const counts = { All: S.items.length };
   S.items.forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
+  counts.Broken = S.items.filter(i => brokenQty(i.id) > 0).length;
+  if (S.cat === "Broken" && !counts.Broken) S.cat = "All";
   h += `<div class="toolbar">
     <input class="search" id="q" type="search" placeholder="Search model, serial, note" value="${esc(S.q)}" autocomplete="off">
     <div class="chips" role="group" aria-label="Category">
-      ${["All", ...CATS].filter(c => counts[c]).map(c => `<button class="chip" data-cat="${c}" aria-pressed="${S.cat === c}">${c}<span class="n">${counts[c]}</span></button>`).join("")}
+      ${["All", "Broken", ...CATS].filter(c => counts[c]).map(c => `<button class="chip" data-cat="${c}" aria-pressed="${S.cat === c}">${c}<span class="n">${counts[c]}</span></button>`).join("")}
     </div></div>`;
   const q = S.q.trim().toLowerCase();
   const rows = S.items
-    .filter(i => S.cat === "All" || i.category === S.cat)
+    .filter(i => S.cat === "All" || (S.cat === "Broken" ? brokenQty(i.id) > 0 : i.category === S.cat))
     .filter(i => !q || [i.name, i.serials, i.note, i.location, tagOf(i.id)].join(" ").toLowerCase().includes(q))
     .sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
   if (!rows.length) return h + `<div class="empty"><p>Nothing matches “${esc(S.q)}”.</p></div>`;
   h += `<div class="list">` + rows.map(i => {
     const a = avail(i), t = i.qty || 0, pct = t ? a / t * 100 : 0;
     const cls = a === 0 ? "none" : a / t <= .34 ? "low" : "";
-    const o = t - a;
+    const b = brokenQty(i.id), o = outQty(i.id);
     return `<button class="row" data-item="${i.id}">
       <div class="main">
         <span class="name">${esc(i.name)}</span>
-        <span class="meta"><span class="tag">${tagOf(i.id)}</span><span class="cat">${esc(i.category)}</span>${i.location ? `<span>${esc(i.location)}</span>` : ""}${o ? `<span>${o} on loan</span>` : ""}</span>
+        <span class="meta"><span class="tag">${tagOf(i.id)}</span><span class="cat">${esc(i.category)}</span>${i.location ? `<span>${esc(i.location)}</span>` : ""}${o ? `<span>${o} on loan</span>` : ""}${b ? `<span class="pill bad">${b} broken</span>` : ""}</span>
       </div>
       <div class="side">
         <span class="stock">${a}<span class="of"> / ${t}</span></span>
@@ -336,7 +348,7 @@ function stockView() {
 
 function loanCard(l) {
   let status;
-  if (l.status === "returned") status = `<span class="pill muted">Returned ${fmtDate(l.returnedAt)}</span>`;
+  if (l.status === "returned") status = l.damaged ? `<span class="pill bad">Returned damaged ×${l.damaged}</span>` : `<span class="pill muted">Returned ${fmtDate(l.returnedAt)}</span>`;
   else if (isOverdue(l)) status = `<span class="pill bad">Overdue · due ${fmtDate(l.dueAt)}</span>`;
   else if (dueSoon(l)) status = `<span class="pill warn">Due ${fmtDate(l.dueAt)}</span>`;
   else status = `<span class="pill ok">${l.dueAt ? "Due " + fmtDate(l.dueAt) : "Out"}</span>`;
@@ -346,7 +358,7 @@ function loanCard(l) {
       <span class="meta"><span>PIC <strong>${esc(l.pic)}</strong></span><span>Out ${fmtDate(l.outAt)}${l.status === "out" ? " · " + daysOut(l.outAt) : ""}</span></span>
       ${l.note ? `<span class="meta">${esc(l.note)}</span>` : ""}
     </div>
-    <div class="side">${status}${l.status === "out" && S.canWrite ? `<button class="btn small" data-return="${l.id}">Return</button>` : ""}</div>
+    <div class="side">${status}${l.status === "out" && S.canWrite ? `<span class="acts" style="display:flex;gap:6px"><button class="btn small danger" data-damaged="${l.id}">Damaged</button><button class="btn small" data-return="${l.id}">Return</button></span>` : ""}</div>
   </div>`;
 }
 
@@ -379,7 +391,7 @@ function loansView() {
   return h;
 }
 
-const ACT = { added: "ADDED", out: "LENT", in: "RETURN", edit: "EDIT", removed: "REMOVED" };
+const ACT = { added: "ADDED", out: "LENT", in: "RETURN", edit: "EDIT", removed: "REMOVED", broken: "BROKEN", fixed: "FIXED", writeoff: "WRITE-OFF" };
 function logView() {
   if (!S.ready) return `<div class="empty"><p>Loading activity…</p></div>`;
   if (!S.acts.length) return `<div class="empty"><h2>No activity yet</h2><p>Every item added, lent, returned or edited is logged here with who did it and when.</p></div>`;
@@ -416,7 +428,7 @@ function itemForm(item) {
       <label>Model / name<input id="fName" required maxlength="80" value="${esc(it.name)}" placeholder="e.g. iPhone 17 Pro Max 256GB"></label>
       <div class="two">
         <label>Category<select id="fCat">${CATS.map(c => `<option${c === it.category ? " selected" : ""}>${esc(c)}</option>`).join("")}</select><span class="hint" id="fCatHint">${esc(CAT_HINT[it.category] || "")}</span></label>
-        <label>${item ? "Total units" : "Quantity"}<input id="fQty" type="number" min="${item ? Math.max(1, outQty(item.id)) : 1}" max="999" step="1" required value="${it.qty}" inputmode="numeric"></label>
+        <label>${item ? "Total units" : "Quantity"}<input id="fQty" type="number" min="${item ? Math.max(1, outQty(item.id) + brokenQty(item.id)) : 1}" max="999" step="1" required value="${it.qty}" inputmode="numeric"></label>
       </div>
       <label>Storage location<input id="fLoc" maxlength="60" value="${esc(it.location)}" placeholder="e.g. Cabinet A, drawer 2"></label>
       <label>Serial / IMEI / asset no.<textarea id="fSerial" maxlength="1000" placeholder="One per line (optional)">${esc(it.serials)}</textarea></label>
@@ -430,7 +442,7 @@ function itemForm(item) {
       const data = { name: $("#fName").value.trim(), category: $("#fCat").value, qty: parseInt($("#fQty").value, 10), location: $("#fLoc").value.trim(), serials: $("#fSerial").value.trim(), note: $("#fNote").value.trim() };
       if (!data.name) return $("#fErr").textContent = "Enter a model or name.";
       if (!(data.qty >= 1)) return $("#fErr").textContent = "Quantity must be at least 1.";
-      if (item && data.qty < outQty(item.id)) return $("#fErr").textContent = `${outQty(item.id)} units are on loan, so the total can't go below that.`;
+      if (item && data.qty < outQty(item.id) + brokenQty(item.id)) return $("#fErr").textContent = `${outQty(item.id)} on loan and ${brokenQty(item.id)} flagged broken, so the total can't go below ${outQty(item.id) + brokenQty(item.id)}.`;
       $("#fSave").disabled = true;
       try {
         if (item) {
@@ -493,9 +505,15 @@ function lendForm(preItemId) {
 function itemSheet(id) {
   const i = S.items.find(x => x.id === id); if (!i) return;
   const loans = S.loans.filter(l => l.itemId === id && l.status === "out");
-  const out = outQty(id);
+  const out = outQty(id), broken = brokenQty(id);
+  const issues = S.issues.filter(x => x.itemId === id && x.status === "open").sort((a, b) => b.reportedAt - a.reportedAt);
   openSheet(`${head(esc(i.name), `<span class="tag">${tagOf(i.id)}</span> &nbsp;${esc(i.category)}${i.location ? " · " + esc(i.location) : ""}`)}
-    <div class="kv"><div><b>${avail(i)}</b><span>Available</span></div><div><b>${out}</b><span>On loan</span></div><div><b>${i.qty}</b><span>Total</span></div></div>
+    <div class="kv"><div><b>${avail(i)}</b><span>Available</span></div><div><b>${out}</b><span>On loan</span></div><div class="${broken ? "is-bad" : ""}"><b>${broken}</b><span>Broken</span></div><div><b>${i.qty}</b><span>Total</span></div></div>
+    ${issues.length ? `<div class="section-label" style="margin:0 0 6px"><span>Broken units</span></div><div class="list" style="margin-bottom:14px">${issues.map(x => `<div class="issue">
+      <span class="meta"><span class="pill bad">${x.qty} broken</span><span>Reported ${fmtDate(x.reportedAt)} by ${esc(nameOf(x))}</span>${x.project ? `<span>after loan to ${esc(x.project)} · PIC ${esc(x.pic)}</span>` : ""}</span>
+      <p>${esc(x.description)}</p>
+      ${S.canWrite ? `<span class="acts"><button class="btn small" data-fix="${x.id}">Mark repaired</button><button class="btn small danger" data-writeoff="${x.id}">Write off ${x.qty}</button></span>` : ""}
+    </div>`).join("")}</div>` : ""}
     ${i.serials ? `<div class="section-label" style="margin:0 0 6px"><span>Serial / IMEI</span></div><p class="note">${esc(i.serials)}</p>` : ""}
     ${i.note ? `<p class="note">${esc(i.note)}</p>` : ""}
     <div class="section-label" style="margin:0 0 6px"><span>Who has it</span></div>
@@ -504,15 +522,69 @@ function itemSheet(id) {
     ${S.canWrite ? `<div class="sheet-actions">
       <button class="btn primary" id="iLend" ${avail(i) ? "" : "disabled"}>Lend</button>
       <button class="btn" id="iEdit">Edit / restock</button>
-      <button class="btn danger" id="iDel" ${out ? "disabled title=\"Return all loans first\"" : ""}>Remove</button>
-    </div>${out ? `<p class="sub" style="margin-top:8px">Return all loans before removing this item.</p>` : ""}` : ""}`, sh => {
+      <button class="btn" id="iBroken" ${avail(i) ? "" : "disabled"}>Report broken</button>
+      <button class="btn danger" id="iDel" ${out || broken ? "disabled" : ""}>Remove</button>
+    </div>${out || broken ? `<p class="sub" style="margin-top:8px">Return all loans and settle broken units before removing this item.</p>` : ""}` : ""}`, sh => {
     bindReturns(sh);
     if (!S.canWrite) return;
     $("#iLend").addEventListener("click", () => lendForm(id));
     $("#iEdit").addEventListener("click", () => itemForm(i));
+    $("#iBroken").addEventListener("click", () => reportForm(id));
+    sh.querySelectorAll("[data-fix]").forEach(b => armed(b, "Confirm repaired", async () => {
+      const x = S.issues.find(v => v.id === b.dataset.fix); if (!x) return;
+      try {
+        await S.db.doc("issues/" + x.id).update({ status: "fixed", closedAt: Date.now(), closedBy: S.uid, closedByName: S.me });
+        await logAct("fixed", `${x.qty} × ${i.name} repaired and back in stock`);
+        toast("Back in stock"); itemSheet(id);
+      } catch (err) { b.disabled = false; toast(writeError(err)); }
+    }));
+    sh.querySelectorAll("[data-writeoff]").forEach(b => armed(b, "Confirm write-off", async () => {
+      const x = S.issues.find(v => v.id === b.dataset.writeoff); if (!x) return;
+      const left = (i.qty || 0) - (x.qty || 0);
+      try {
+        await S.db.doc("issues/" + x.id).update({ status: "written-off", closedAt: Date.now(), closedBy: S.uid, closedByName: S.me });
+        if (left >= 1) await S.db.doc("items/" + id).update({ qty: left, updatedAt: Date.now() });
+        else await S.db.doc("items/" + id).delete();
+        await logAct("writeoff", `Wrote off ${x.qty} × ${i.name}${left >= 1 ? ` · ${left} left in stock` : " · item removed"}`);
+        toast("Written off");
+        if (left >= 1) itemSheet(id); else closeSheet();
+      } catch (err) { b.disabled = false; toast(writeError(err)); }
+    }));
     armed($("#iDel"), "Tap again to remove", async () => {
       try { await S.db.doc("items/" + id).delete(); await logAct("removed", `Removed ${i.name} (${i.qty} units) from stock`); closeSheet(); toast("Removed"); }
       catch (err) { toast(writeError(err)); }
+    });
+  });
+}
+
+function reportForm(itemId, loan) {
+  const i = S.items.find(x => x.id === itemId);
+  if (!i) return toast("That item was removed");
+  const max = loan ? (loan.qty || 1) : avail(i);
+  if (max < 1) return toast("No working units in stock to flag");
+  openSheet(`${head(loan ? "Return damaged" : "Report broken", loan ? `${esc(i.name)} · back from ${esc(loan.project)} · PIC ${esc(loan.pic)}` : esc(i.name))}
+    <form class="f" id="brokenForm">
+      <label>Broken units<input id="bQty" type="number" min="1" max="${max}" step="1" required value="1" inputmode="numeric"><span class="hint">${loan ? `Of the ${max} returned. The rest go back into stock as working.` : `${max} working unit${max > 1 ? "s" : ""} in stock.`}</span></label>
+      <label>What's wrong<textarea id="bDesc" required maxlength="1000" placeholder="e.g. Cracked screen top-left, touch still works. Battery drains in 1 hour. Serial F2LX…"></textarea></label>
+      <p class="err" id="bErr"></p>
+      <div class="actions"><button type="button" class="btn" data-close>Cancel</button><button class="btn primary" id="bSave">${loan ? "Return and flag" : "Flag as broken"}</button></div>
+    </form>`, () => {
+    $("#bDesc").focus();
+    $("#brokenForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const qty = parseInt($("#bQty").value, 10), description = $("#bDesc").value.trim();
+      if (!(qty >= 1 && qty <= max)) return $("#bErr").textContent = `Enter a number from 1 to ${max}.`;
+      if (!description) return $("#bErr").textContent = "Describe what's broken so whoever repairs it knows.";
+      $("#bSave").disabled = true;
+      try {
+        if (loan) {
+          await S.db.doc("loans/" + loan.id).update({ status: "returned", returnedAt: Date.now(), returnedBy: S.uid, damaged: qty });
+          await logAct("in", `${loan.qty} × ${loan.itemName} returned from ${loan.project} · PIC ${loan.pic}`);
+        }
+        await S.db.collection("issues").add({ itemId: i.id, itemName: i.name, qty, description, status: "open", reportedAt: Date.now(), by: S.uid, byName: S.me, ...(loan ? { loanId: loan.id, project: loan.project, pic: loan.pic } : {}) });
+        await logAct("broken", `${qty} × ${i.name} flagged broken: ${description.length > 80 ? description.slice(0, 80) + "…" : description}`);
+        closeSheet(); toast(`${qty} × ${i.name} flagged broken`);
+      } catch (err) { $("#bSave").disabled = false; $("#bErr").textContent = writeError(err); }
     });
   });
 }
@@ -526,6 +598,9 @@ function armed(btn, label, fn) {
   });
 }
 function bindReturns(scope) {
+  scope.querySelectorAll("[data-damaged]").forEach(b => b.addEventListener("click", () => {
+    const l = S.loans.find(x => x.id === b.dataset.damaged); if (l) reportForm(l.itemId, l);
+  }));
   scope.querySelectorAll("[data-return]").forEach(b => armed(b, "Confirm", async () => {
     const l = S.loans.find(x => x.id === b.dataset.return); if (!l) return;
     try {
@@ -587,20 +662,21 @@ async function boot() {
   S.signOut = () => signOut(auth);
   onAuthStateChanged(auth, u => {
     unsubs.forEach(f => f()); unsubs = [];
-    S.items = []; S.loans = []; S.acts = []; S.ready = false;
+    S.items = []; S.loans = []; S.acts = []; S.issues = []; S.ready = false;
     if (!u) { S.uid = null; S.email = ""; S.gate = "signin"; $("#sync").textContent = "Signed out"; render(); return; }
     S.uid = u.uid; S.email = u.email || ""; S.me = u.displayName || u.email || "";
     S.gate = "loading"; render();
-    let got = 0;
-    const done = () => { if (++got >= 3) { S.ready = true; S.gate = null; $("#sync").textContent = "Shared with your team · updates live"; } };
+    const got = new Set();
+    const done = k => { got.add(k); if (got.size >= 4 && !S.ready) { S.ready = true; S.gate = null; $("#sync").textContent = "Shared with your team · updates live"; } };
     const fail = e => {
       S.gate = e && e.code === "permission-denied" ? "denied" : "error";
       $("#sync").textContent = S.gate === "denied" ? "No access" : "Lost connection. Reload to retry.";
       render();
     };
-    unsubs.push(onSnapshot(collection(fs, "items"), q => { S.items = q.docs.map(d => { const v = d.data(); return { id: d.id, ...v, category: LEGACY_CAT[v.category] || (CATS.includes(v.category) ? v.category : "Other") }; }); done(); render(); }, fail));
-    unsubs.push(onSnapshot(collection(fs, "loans"), q => { S.loans = q.docs.map(d => ({ id: d.id, ...d.data() })); done(); render(); }, fail));
-    unsubs.push(onSnapshot(query(collection(fs, "activity"), orderBy("at", "desc"), limit(300)), q => { S.acts = q.docs.map(d => ({ id: d.id, ...d.data() })); done(); render(); }, fail));
+    unsubs.push(onSnapshot(collection(fs, "items"), q => { const K = "items"; S.items = q.docs.map(d => { const v = d.data(); return { id: d.id, ...v, category: LEGACY_CAT[v.category] || (CATS.includes(v.category) ? v.category : "Other") }; }); done(K); render(); }, fail));
+    unsubs.push(onSnapshot(collection(fs, "issues"), q => { S.issues = q.docs.map(d => ({ id: d.id, ...d.data() })); done("issues"); render(); }, fail));
+    unsubs.push(onSnapshot(collection(fs, "loans"), q => { const K = "loans"; S.loans = q.docs.map(d => ({ id: d.id, ...d.data() })); done(K); render(); }, fail));
+    unsubs.push(onSnapshot(query(collection(fs, "activity"), orderBy("at", "desc"), limit(300)), q => { const K = "activity"; S.acts = q.docs.map(d => ({ id: d.id, ...d.data() })); done(K); render(); }, fail));
   });
 }
 
